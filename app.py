@@ -136,7 +136,7 @@ IMPORTANT DISCLAIMERS:
 
 {continuation_text}
 
-Keep responses CONSISTENT and moderately sized - aim for exactly 2-3 complete sentences. CRITICALLY IMPORTANT: If you have more to say, you MUST end your response with "..." to indicate continuation is available. Always finish complete sentences - never cut off mid-sentence. Be conversational and informative."""
+Keep responses CONSISTENT and moderately sized - aim for exactly 2-3 complete sentences. CRITICALLY IMPORTANT: If you have more to say, you MUST end your response with "..." to indicate continuation is available. Always finish complete sentences - never cut off mid-sentence. Be conversational and informative. Do not add in quotations around your responses or repeat yourself."""
 
         # Build message history for context
         messages = [{"role": "system", "content": system_prompt}]

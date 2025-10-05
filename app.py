@@ -1,3 +1,8 @@
+"""
+QuantCoach - AI Trading Education Platform
+Copyright (c) 2025 Rob Costa
+"""
+
 import streamlit as st
 import os
 import json
@@ -11,6 +16,41 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# Add custom CSS to prevent text cutoff
+st.markdown("""
+<style>
+    /* Ensure chat messages have proper spacing and don't get cut off */
+    .stChatMessage {
+        margin-bottom: 0.5rem !important;
+        padding: 0.75rem !important;
+        word-wrap: break-word !important;
+        overflow-wrap: break-word !important;
+    }
+    
+    /* Ensure text containers have proper height */
+    .stMarkdown {
+        max-width: 100% !important;
+        word-wrap: break-word !important;
+        overflow-wrap: break-word !important;
+    }
+    
+    /* Prevent text cutoff in chat area */
+    .main .block-container {
+        padding-bottom: 3rem !important;
+    }
+    
+    /* Ensure sidebar doesn't overlap content */
+    .main {
+        margin-left: 0 !important;
+    }
+    
+    /* Reduce spacing between elements */
+    .element-container {
+        margin-bottom: 0.5rem !important;
+    }
+</style>
+""", unsafe_allow_html=True)
 
 # Initialize Grok client
 @st.cache_resource
@@ -63,7 +103,7 @@ IMPORTANT DISCLAIMERS:
 
 {context_info}
 
-Keep responses concise but informative - aim for 4-6 sentences that give a solid introduction. Be conversational and engaging. If they want more depth, they can ask follow-up questions."""
+Keep responses VERY concise - aim for 2-3 short sentences maximum. Always finish your thoughts completely within the token limit. Stop before you run out of space. Be conversational but brief."""
 
         # Build message history for context
         messages = [{"role": "system", "content": system_prompt}]
@@ -79,7 +119,7 @@ Keep responses concise but informative - aim for 4-6 sentences that give a solid
             messages=messages,
             model="llama-3.1-8b-instant",
             temperature=0.3,
-            max_tokens=400,
+            max_tokens=250,
         )
         
         return chat_completion.choices[0].message.content
@@ -103,150 +143,120 @@ def main():
         ["Select a path..."] + [path["name"] for path in learning_paths["learning_paths"]]
     )
     
-    # Main content area
-    col1, col2 = st.columns([2, 1])
+    # Track previous selection to auto-trigger explanation
+    if "previous_topic" not in st.session_state:
+        st.session_state.previous_topic = "Select a topic..."
     
-    with col1:
-        st.header("🤖 AI Assistant")
+    # Quick topic selection in sidebar
+    if selected_path != "Select a path...":
+        # Find the selected path
+        current_path = None
+        for path in learning_paths["learning_paths"]:
+            if path["name"] == selected_path:
+                current_path = path
+                break
         
-        # Chat interface
-        if "messages" not in st.session_state:
-            st.session_state.messages = []
-        
-        # Display chat messages (oldest first, newest last - natural chat flow)
-        for message in st.session_state.messages:
-            with st.chat_message(message["role"]):
-                st.markdown(message["content"])
-        
-        # Chat input
-        if prompt := st.chat_input("Ask me about quantitative trading concepts..."):
-            # Add user message to chat history
-            st.session_state.messages.append({"role": "user", "content": prompt})
-            with st.chat_message("user"):
-                st.markdown(prompt)
+        if current_path:
+            st.sidebar.markdown("---")
+            st.sidebar.subheader("🎯 Topic Explorer")
             
-            # Get context from selected learning path
-            context = ""
-            current_path = None
-            if selected_path != "Select a path...":
-                for path in learning_paths["learning_paths"]:
-                    if path["name"] == selected_path:
-                        current_path = path
-                        topics = [topic["name"] for topic in path["topics"]]
-                        context = f"Learning path: {selected_path}. Available topics: {', '.join(topics)}"
-                        break
+            selected_topic = st.sidebar.selectbox(
+                "Choose a topic to explore:",
+                ["Select a topic..."] + [topic["name"] for topic in current_path["topics"]]
+            )
             
-            # Get AI response with chat history
-            with st.chat_message("assistant"):
-                with st.spinner("Thinking..."):
-                    response = get_ai_response(prompt, context, selected_path, "", st.session_state.messages)
-                st.markdown(response)
+            # Auto-explain when topic is selected (different from previous)
+            if selected_topic != "Select a topic..." and selected_topic != st.session_state.previous_topic:
+                question = f"Please briefly explain {selected_topic} in the context of {selected_path}."
+                
+                # Add to chat
+                st.session_state.messages.append({"role": "user", "content": question})
+                
+                # Get AI response with detailed context and chat history
+                context = f"Learning path: {selected_path}, Specific topic: {selected_topic}"
+                response = get_ai_response(question, context, selected_path, selected_topic, st.session_state.messages)
+                st.session_state.messages.append({"role": "assistant", "content": response})
+                
+                # Update previous topic
+                st.session_state.previous_topic = selected_topic
+                
+                # Rerun to update chat
+                st.rerun()
             
-            # Add assistant response to chat history
-            st.session_state.messages.append({"role": "assistant", "content": response})
-            
-            # Auto-scroll to bottom after new message
-            st.rerun()
-    
-    with col2:
-        st.header("📖 Learning Content")
-        
-        if selected_path != "Select a path...":
-            # Find the selected path
-            current_path = None
-            for path in learning_paths["learning_paths"]:
-                if path["name"] == selected_path:
-                    current_path = path
-                    break
-            
-            if current_path:
-                st.subheader(f"📍 {current_path['name']}")
-                st.markdown("**Topics to explore:**")
+            # Learning buttons in sidebar
+            if selected_topic != "Select a topic...":
+                st.sidebar.markdown("**Continue Learning:**")
                 
-                for i, topic in enumerate(current_path["topics"], 1):
-                    st.markdown(f"{i}. {topic['name']}")
-                
-                # Quick topic selection for questions
-                st.markdown("---")
-                st.subheader("🎯 Quick Topic Questions")
-                
-                # Track previous selection to auto-trigger explanation
-                if "previous_topic" not in st.session_state:
-                    st.session_state.previous_topic = "Select a topic..."
-                
-                selected_topic = st.selectbox(
-                    "Get explanation for a specific topic:",
-                    ["Select a topic..."] + [topic["name"] for topic in current_path["topics"]]
-                )
-                
-                # Auto-explain when topic is selected (different from previous)
-                if selected_topic != "Select a topic..." and selected_topic != st.session_state.previous_topic:
-                    question = f"Please briefly explain {selected_topic} in the context of {selected_path}."
+                # Teach me more button
+                if st.sidebar.button(f"📚 Learn More", key="learn_more"):
+                    more_question = f"Can you teach me more advanced concepts about {selected_topic}? Give me deeper insights and practical applications."
                     
                     # Add to chat
-                    st.session_state.messages.append({"role": "user", "content": question})
+                    st.session_state.messages.append({"role": "user", "content": more_question})
                     
-                    # Get AI response with detailed context and chat history
-                    context = f"Learning path: {selected_path}, Specific topic: {selected_topic}"
-                    response = get_ai_response(question, context, selected_path, selected_topic, st.session_state.messages)
+                    # Get AI response
+                    context = f"Learning path: {selected_path}, Advanced topic: {selected_topic}"
+                    response = get_ai_response(more_question, context, selected_path, selected_topic, st.session_state.messages)
                     st.session_state.messages.append({"role": "assistant", "content": response})
-                    
-                    # Update previous topic
-                    st.session_state.previous_topic = selected_topic
                     
                     # Rerun to update chat
                     st.rerun()
                 
-                # Learning buttons
-                if selected_topic != "Select a topic...":
-                    st.markdown("---")
+                # Quiz button
+                if st.sidebar.button(f"📝 Quiz Me", key="quiz_me"):
+                    quiz_question = f"Give me a quick quiz question about {selected_topic} in the context of {selected_path}. Just ask one good question."
                     
-                    # Teach me more button
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        if st.button(f"📚 Teach me more about: {selected_topic}"):
-                            more_question = f"Can you teach me more advanced concepts about {selected_topic}? Give me deeper insights and practical applications."
-                            
-                            # Add to chat
-                            st.session_state.messages.append({"role": "user", "content": more_question})
-                            
-                            # Get AI response
-                            context = f"Learning path: {selected_path}, Advanced topic: {selected_topic}"
-                            response = get_ai_response(more_question, context, selected_path, selected_topic, st.session_state.messages)
-                            st.session_state.messages.append({"role": "assistant", "content": response})
-                            
-                            # Rerun to update chat
-                            st.rerun()
+                    # Add to chat
+                    st.session_state.messages.append({"role": "user", "content": quiz_question})
                     
-                    # Quiz button
-                    with col2:
-                        if st.button(f"📝 Quiz me on: {selected_topic}"):
-                            quiz_question = f"Give me a quick quiz question about {selected_topic} in the context of {selected_path}. Just ask one good question."
-                            
-                            # Add to chat
-                            st.session_state.messages.append({"role": "user", "content": quiz_question})
-                            
-                            # Get AI response
-                            context = f"Learning path: {selected_path}, Quiz topic: {selected_topic}"
-                            response = get_ai_response(quiz_question, context, selected_path, selected_topic, st.session_state.messages)
-                            st.session_state.messages.append({"role": "assistant", "content": response})
-                            
-                            # Rerun to update chat
-                            st.rerun()
-        else:
-            st.info("👈 Select a learning path from the sidebar to get started!")
-            
-            st.markdown("### Welcome to QuantCoach!")
-            st.markdown("""
-            This AI-powered educational platform helps you learn:
-            
-            - **Probability & Statistics** for trading
-            - **Machine Learning** applications in finance  
-            - **Market structures** and derivatives
-            - **Quantitative trading** strategies
-            
-            Choose a learning path to begin your journey!
-            """)
+                    # Get AI response
+                    context = f"Learning path: {selected_path}, Quiz topic: {selected_topic}"
+                    response = get_ai_response(quiz_question, context, selected_path, selected_topic, st.session_state.messages)
+                    st.session_state.messages.append({"role": "assistant", "content": response})
+                    
+                    # Rerun to update chat
+                    st.rerun()
+    
+    # Main chat area - full width
+    st.header("🤖 AI Assistant")
+    
+    # Chat interface
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
+    
+    # Create a scrollable container for chat messages
+    chat_container = st.container()
+    
+    with chat_container:
+        # Display chat messages (oldest first, newest last - natural chat flow)
+        for message in st.session_state.messages:
+            with st.chat_message(message["role"]):
+                # Add a unique key to prevent rendering issues
+                st.markdown(message["content"], unsafe_allow_html=False)
+    
+    # Chat input at bottom
+    if prompt := st.chat_input("Ask me about quantitative trading concepts..."):
+        # Add user message to chat history
+        st.session_state.messages.append({"role": "user", "content": prompt})
+        
+        # Get context from selected learning path
+        context = ""
+        if selected_path != "Select a path...":
+            for path in learning_paths["learning_paths"]:
+                if path["name"] == selected_path:
+                    topics = [topic["name"] for topic in path["topics"]]
+                    context = f"Learning path: {selected_path}. Available topics: {', '.join(topics)}"
+                    break
+        
+        # Get AI response with chat history
+        with st.spinner("Thinking..."):
+            response = get_ai_response(prompt, context, selected_path, "", st.session_state.messages)
+        
+        # Add assistant response to chat history
+        st.session_state.messages.append({"role": "assistant", "content": response})
+        
+        # Rerun to show new messages
+        st.rerun()
     
     # Footer
     st.markdown("---")

@@ -74,7 +74,7 @@ st.markdown("""
 
 <!-- Fixed Disclaimer Bar -->
 <div class="disclaimer-bar">
-    ⚠️ Educational Disclaimer: This platform is intended solely for educational and informational purposes. Nothing presented here constitutes financial, investment, or trading advice. Users should always seek guidance from licensed financial professionals before making any investment or trading decisions.
+    ⚠️ Disclaimer: This platform is intended solely for educational and informational purposes. Nothing presented here constitutes financial, investment, or trading advice. Users should always seek guidance from licensed financial professionals before making any investment or trading decisions.
 </div>
 """, unsafe_allow_html=True)
 

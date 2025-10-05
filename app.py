@@ -119,7 +119,7 @@ st.markdown("""
 
 <!-- Disclaimer -->
 <div class="disclaimer-bar">
-    ⚠️ Disclaimer: This platform is intended solely for educational and informational purposes. Nothing presented here constitutes financial, investment, or trading advice. Users should always seek guidance from licensed financial professionals before making any investment or trading decisions.
+    ⚠️ Disclaimer: This platform is intended solely for educational and informational purposes. Nothing presented here constitutes financial, investment, or trading advice. Users should always seek guidance from licensed financial professionals before any investment or trading decisions.
 </div>
 """, unsafe_allow_html=True)
 
@@ -136,8 +136,8 @@ def load_learning_paths():
     with open('learning_paths.json', 'r') as f:
         return json.load(f)
 
-def get_ai_response(message, context="", selected_path="", selected_topic="", 
-                   chat_history=[], is_continuation=False):
+def get_ai_response(message, context="", selected_path="",
+                   selected_topic="", chat_history=[], is_continuation=False):
     """Get response from Grok API"""
     try:
         # Build detailed context for Grok
@@ -145,13 +145,15 @@ def get_ai_response(message, context="", selected_path="", selected_topic="",
         if context:
             context_info += f"Current learning context: {context}\n"
         if selected_path and selected_path != "Select a path...":
-            context_info += f"User has selected learning path: {selected_path}\n"
+            context_info += f"User selected path: {selected_path}\n"
         if selected_topic and selected_topic != "Select a topic...":
-            context_info += f"User is focusing on topic: {selected_topic}\n"
+            context_info += f"User focusing on: {selected_topic}\n"
         
         continuation_text = ""
         if is_continuation:
-            continuation_text = "IMPORTANT: You are continuing from an incomplete sentence. Complete the exact sentence that was cut off, then continue with 1-2 more complete sentences."
+            continuation_text = ("CRITICAL: Continue from where you left off. "
+                               "Complete the sentence and WRAP UP with a clear "
+                               "conclusion. DO NOT end with '...'")
         
         system_prompt = f"""You are QuantCoach, an AI educational assistant specializing in quantitative trading and finance education.
 
@@ -181,13 +183,13 @@ IMPORTANT DISCLAIMERS:
 
 {continuation_text}
 
-Keep responses CONSISTENT and moderately sized - aim for exactly 2-3 complete sentences. CRITICALLY IMPORTANT: If you have more to say, you MUST end your response with "..." to indicate continuation is available. Always finish complete sentences - never cut off mid-sentence. Be conversational and informative. Do not add in quotations around your responses or repeat yourself."""
+Keep responses CONSISTENT and moderately sized - aim for exactly 2-3 complete sentences. CRITICALLY IMPORTANT: If you have more to say, you MUST end your response with "..." to indicate continuation is available. Always finish complete sentences - never cut off mid-sentence. Be conversational and informative. Do not add quotations around your responses or repeat yourself."""
 
         # Build message history for context
         messages = [{"role": "system", "content": system_prompt}]
         
-        # Add recent chat history (last 4 messages to keep context manageable)
-        recent_history = (chat_history[-4:] if len(chat_history) > 4 
+        # Add recent chat history (last 4 messages for context)
+        recent_history = (chat_history[-4:] if len(chat_history) > 4
                          else chat_history)
         messages.extend(recent_history)
         
@@ -198,7 +200,7 @@ Keep responses CONSISTENT and moderately sized - aim for exactly 2-3 complete se
             messages=messages,
             model="llama-3.1-8b-instant",
             temperature=0.3,
-            max_tokens=120,
+            max_tokens=80,
         )
         
         return chat_completion.choices[0].message.content
@@ -209,7 +211,9 @@ Keep responses CONSISTENT and moderately sized - aim for exactly 2-3 complete se
 def main():
     # Header
     st.title("🎓 QuantCoach: Master Algorithmic Trading with AI Guidance")
-    st.markdown("*Learn the science behind profitable trading strategies through interactive lessons, real market data, and personalized AI support.*")
+    st.markdown("*Learn the science behind profitable trading strategies "
+                "through interactive lessons, real market data, and "
+                "personalized AI support.*")
     
     # Sidebar
     st.sidebar.title("📚 Learning Paths")
@@ -283,9 +287,10 @@ def main():
                 
                 # Teach me more button
                 if st.sidebar.button(f"📚 Learn More", key="learn_more"):
-                    more_question = (f"Can you teach me more advanced concepts "
-                                   f"about {selected_topic}? Give me deeper "
-                                   f"insights and practical applications.")
+                    more_question = (f"Can you teach me more advanced "
+                                   f"concepts about {selected_topic}? "
+                                   f"Give me deeper insights and practical "
+                                   f"applications.")
                     
                     # Add to chat
                     st.session_state.messages.append({
@@ -311,11 +316,11 @@ def main():
                 
                 # Quiz buttons - separate rows
                 if st.sidebar.button("📝 Multiple Choice", key="quiz_mc"):
-                    quiz_question = (f"Give me a multiple choice quiz question "
-                                   f"about {selected_topic} in the context of "
-                                   f"{selected_path}. Provide one question "
-                                   f"with 4 options (A, B, C, D) and indicate "
-                                   f"the correct answer.")
+                    quiz_question = (f"Give me a multiple choice quiz "
+                                   f"question about {selected_topic} in the "
+                                   f"context of {selected_path}. Provide one "
+                                   f"question with 4 options (A, B, C, D) "
+                                   f"and indicate the correct answer.")
                     
                     # Add to chat
                     st.session_state.messages.append({
@@ -340,7 +345,8 @@ def main():
                     quiz_question = (f"Give me a short answer quiz question "
                                    f"about {selected_topic} in the context of "
                                    f"{selected_path}. Ask one thought-provoking "
-                                   f"question that requires a brief explanation.")
+                                   f"question that requires a brief "
+                                   f"explanation.")
                     
                     # Add to chat
                     st.session_state.messages.append({
@@ -374,11 +380,15 @@ def main():
     if "messages" not in st.session_state:
         st.session_state.messages = []
     
+    # Track continuation count to prevent endless loops
+    if "continuation_count" not in st.session_state:
+        st.session_state.continuation_count = 0
+    
     # Create a scrollable container for chat messages
     chat_container = st.container()
     
     with chat_container:
-        # Display chat messages (oldest first, newest last - natural flow)
+        # Display chat messages (oldest first, newest last)
         for i, message in enumerate(st.session_state.messages):
             with st.chat_message(message["role"]):
                 # Add a unique key to prevent rendering issues
@@ -395,9 +405,12 @@ def main():
             
             if (message["role"] == "assistant" and
                 is_incomplete and
-                i == len(st.session_state.messages) - 1):  # Only last message
+                i == len(st.session_state.messages) - 1 and  # Last msg
+                st.session_state.continuation_count < 2):  # Max 2 continues
                 
                 if st.button("📖 Continue", key=f"continue_{i}"):
+                    # Increment continuation count
+                    st.session_state.continuation_count += 1
                     # Get the incomplete message content
                     incomplete_message = message["content"]
                     
@@ -406,16 +419,33 @@ def main():
                     if selected_path != "Select a path...":
                         for path in learning_paths["learning_paths"]:
                             if path["name"] == selected_path:
-                                topics = [topic["name"] 
+                                topics = [topic["name"]
                                          for topic in path["topics"]]
                                 context = (f"Learning path: {selected_path}. "
-                                          f"Available topics: {', '.join(topics)}")
+                                          f"Available topics: "
+                                          f"{', '.join(topics)}")
                                 break
                     
-                    # Create a more specific continuation prompt
-                    continuation_prompt = (f"Please complete this incomplete "
-                                         f"sentence and continue: "
-                                         f"\"{incomplete_message}\"")
+                    # Create a conclusion-focused continuation prompt
+                    if st.session_state.continuation_count >= 2:
+                        continuation_prompt = (f"Complete this response and "
+                                             f"provide a final conclusion "
+                                             f"(do not end with '...'): "
+                                             f"{incomplete_message}")
+                        instruction = "Complete with a final conclusion."
+                    else:
+                        continuation_prompt = (f"Continue from exactly where "
+                                             f"this text left off and start "
+                                             f"wrapping up: "
+                                             f"{incomplete_message}")
+                        instruction = "Continue and begin concluding."
+                    
+                    # Add explicit instruction to wrap up
+                    temp_messages = st.session_state.messages.copy()
+                    temp_messages.append({
+                        "role": "user",
+                        "content": instruction
+                    })
                     
                     # Get continuation response
                     with st.spinner("Continuing..."):
@@ -424,7 +454,7 @@ def main():
                             context,
                             selected_path,
                             "",
-                            st.session_state.messages,
+                            temp_messages,
                             is_continuation=True
                         )
                     
@@ -437,8 +467,13 @@ def main():
     # Chat input at bottom
     prompt = st.chat_input("Ask me about quantitative trading concepts...")
     if prompt:
+        # Reset continuation count for new conversations
+        st.session_state.continuation_count = 0
+
         # Add user message to chat history
-        st.session_state.messages.append({"role": "user", "content": prompt})
+        st.session_state.messages.append({
+            "role": "user", "content": prompt
+        })
         
         # Get context from selected learning path
         context = ""

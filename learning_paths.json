@@ -1,0 +1,44 @@
+{
+  "learning_paths": [
+    {
+      "name": "Probability & Statistics",
+      "topics": [
+        {"name": "Events and probabilities"},
+        {"name": "Conditional probability & Bayes’ theorem"},
+        {"name": "Distributions (normal, binomial, Poisson)"},
+        {"name": "Confidence intervals & hypothesis testing"},
+        {"name": "Expectation, variance, correlation"}
+      ]
+    },
+    {
+      "name": "Machine Learning",
+      "topics": [
+        {"name": "Linear and logistic regression"},
+        {"name": "Classification vs regression"},
+        {"name": "Clustering & PCA"},
+        {"name": "Overfitting, underfitting, cross-validation"},
+        {"name": "Feature engineering"}
+      ]
+    },
+    {
+      "name": "Markets / Trading / Asset Types / Derivatives",
+      "topics": [
+        {"name": "Stocks, bonds, commodities, crypto"},
+        {"name": "Options, futures, swaps"},
+        {"name": "Market microstructure & liquidity"},
+        {"name": "Risk metrics (VaR, drawdowns)"},
+        {"name": "Portfolio allocation basics"}
+      ]
+    },
+    {
+      "name": "Quant Trading",
+      "topics": [
+        {"name": "Cointegration & mean reversion"},
+        {"name": "Hidden Markov Models for regime detection"},
+        {"name": "Statistical arbitrage"},
+        {"name": "Backtesting frameworks"},
+        {"name": "Integrating ML with trading strategies"}
+      ]
+    }
+  ]
+}

@@ -17,7 +17,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Add custom CSS to prevent text cutoff and add disclaimer bar
+# Add custom CSS for mobile-friendly design
 st.markdown("""
 <style>
     /* Ensure chat messages have proper spacing and don't get cut off */
@@ -35,9 +35,9 @@ st.markdown("""
         overflow-wrap: break-word !important;
     }
     
-    /* Prevent text cutoff in chat area and add space for disclaimer bar */
+    /* Desktop: Prevent text cutoff and add space for disclaimer bar */
     .main .block-container {
-        padding-bottom: 4rem !important;
+        padding-bottom: 5rem !important;
     }
     
     /* Ensure sidebar doesn't overlap content */
@@ -50,7 +50,7 @@ st.markdown("""
         margin-bottom: 0.5rem !important;
     }
     
-    /* Fixed disclaimer bar at bottom */
+    /* Desktop: Fixed disclaimer bar at bottom */
     .disclaimer-bar {
         position: fixed;
         bottom: 0;
@@ -58,21 +58,66 @@ st.markdown("""
         right: 0;
         background-color: #1e1e1e;
         border-top: 1px solid #333;
-        padding: 8px 16px;
+        padding: 6px 12px;
         text-align: center;
-        font-size: 0.85em;
+        font-size: 0.75em;
         color: #ffa500;
-        z-index: 1000;
+        z-index: 999;
         box-shadow: 0 -2px 10px rgba(0,0,0,0.3);
+        line-height: 1.3;
     }
     
-    /* Adjust main content to not be hidden by disclaimer bar */
+    /* Desktop: Adjust main content margin */
     .stApp > div {
-        margin-bottom: 50px !important;
+        margin-bottom: 60px !important;
+    }
+    
+    /* Mobile-specific adjustments */
+    @media (max-width: 768px) {
+        .disclaimer-bar {
+            position: relative !important;
+            bottom: auto !important;
+            margin-top: 1rem;
+            margin-bottom: 0;
+            font-size: 0.65em;
+            padding: 4px 8px;
+            z-index: 1;
+        }
+        
+        .main .block-container {
+            padding-bottom: 2rem !important;
+        }
+        
+        .stApp > div {
+            margin-bottom: 0 !important;
+        }
+        
+        /* Ensure chat input has proper spacing on mobile */
+        .stChatInput {
+            margin-bottom: 1rem !important;
+        }
+        
+        /* Mobile sidebar adjustments */
+        .css-1d391kg {
+            padding-top: 1rem !important;
+        }
+    }
+    
+    /* Extra small mobile devices */
+    @media (max-width: 480px) {
+        .disclaimer-bar {
+            font-size: 0.6em;
+            padding: 3px 6px;
+        }
+        
+        .stChatMessage {
+            padding: 0.5rem !important;
+            margin-bottom: 0.3rem !important;
+        }
     }
 </style>
 
-<!-- Fixed Disclaimer Bar -->
+<!-- Disclaimer -->
 <div class="disclaimer-bar">
     ⚠️ Disclaimer: This platform is intended solely for educational and informational purposes. Nothing presented here constitutes financial, investment, or trading advice. Users should always seek guidance from licensed financial professionals before making any investment or trading decisions.
 </div>

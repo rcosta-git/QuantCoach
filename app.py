@@ -22,59 +22,21 @@ client = init_grok_client()
 # Load learning paths data from JSON file
 @st.cache_data
 def load_learning_paths():
-    try:
-        with open('learning_paths.json', 'r') as f:
-            return json.load(f)
-    except FileNotFoundError:
-        # Fallback data if file not found
-        return {
-            "learning_paths": [
-                {
-                    "name": "Probability & Statistics",
-                    "topics": [
-                        {"name": "Events and probabilities"},
-                        {"name": "Conditional probability & Bayes' theorem"},
-                        {"name": "Distributions (normal, binomial, Poisson)"},
-                        {"name": "Confidence intervals & hypothesis testing"},
-                        {"name": "Expectation, variance, correlation"}
-                    ]
-                },
-                {
-                    "name": "Machine Learning",
-                    "topics": [
-                        {"name": "Linear and logistic regression"},
-                        {"name": "Classification vs regression"},
-                        {"name": "Clustering & PCA"},
-                        {"name": "Overfitting, underfitting, cross-validation"},
-                        {"name": "Feature engineering"}
-                    ]
-                },
-                {
-                    "name": "Markets / Trading / Asset Types / Derivatives",
-                    "topics": [
-                        {"name": "Stocks, bonds, commodities, crypto"},
-                        {"name": "Options, futures, swaps"},
-                        {"name": "Market microstructure & liquidity"},
-                        {"name": "Risk metrics (VaR, drawdowns)"},
-                        {"name": "Portfolio allocation basics"}
-                    ]
-                },
-                {
-                    "name": "Quant Trading",
-                    "topics": [
-                        {"name": "Cointegration & mean reversion"},
-                        {"name": "Hidden Markov Models for regime detection"},
-                        {"name": "Statistical arbitrage"},
-                        {"name": "Backtesting frameworks"},
-                        {"name": "Integrating ML with trading strategies"}
-                    ]
-                }
-            ]
-        }
+    with open('learning_paths.json', 'r') as f:
+        return json.load(f)
 
-def get_ai_response(message, context=""):
+def get_ai_response(message, context="", selected_path="", selected_topic="", chat_history=[]):
     """Get response from Grok API"""
     try:
+        # Build detailed context for Grok
+        context_info = ""
+        if context:
+            context_info += f"Current learning context: {context}\n"
+        if selected_path and selected_path != "Select a path...":
+            context_info += f"User has selected learning path: {selected_path}\n"
+        if selected_topic and selected_topic != "Select a topic...":
+            context_info += f"User is focusing on topic: {selected_topic}\n"
+        
         system_prompt = f"""You are QuantCoach, an AI educational assistant specializing in quantitative trading and finance education.
 
 Your role is to help users LEARN ABOUT quantitative trading concepts, NOT to provide trading advice or perform analysis.
@@ -99,18 +61,25 @@ IMPORTANT DISCLAIMERS:
 - Users must consult qualified financial advisors for investment decisions
 - Trading involves substantial risk and past performance doesn't guarantee future results
 
-Context: {context}
+{context_info}
 
-Keep responses educational, clear, and concise. Focus on teaching concepts rather than giving advice."""
+Keep responses concise but informative - aim for 4-6 sentences that give a solid introduction. Be conversational and engaging. If they want more depth, they can ask follow-up questions."""
+
+        # Build message history for context
+        messages = [{"role": "system", "content": system_prompt}]
+        
+        # Add recent chat history (last 4 messages to keep context manageable and avoid token limits)
+        recent_history = chat_history[-4:] if len(chat_history) > 4 else chat_history
+        messages.extend(recent_history)
+        
+        # Add current message
+        messages.append({"role": "user", "content": message})
 
         chat_completion = client.chat.completions.create(
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": message}
-            ],
+            messages=messages,
             model="llama-3.1-8b-instant",
             temperature=0.3,
-            max_tokens=1000,
+            max_tokens=400,
         )
         
         return chat_completion.choices[0].message.content
@@ -144,7 +113,7 @@ def main():
         if "messages" not in st.session_state:
             st.session_state.messages = []
         
-        # Display chat messages
+        # Display chat messages (oldest first, newest last - natural chat flow)
         for message in st.session_state.messages:
             with st.chat_message(message["role"]):
                 st.markdown(message["content"])
@@ -158,20 +127,26 @@ def main():
             
             # Get context from selected learning path
             context = ""
+            current_path = None
             if selected_path != "Select a path...":
                 for path in learning_paths["learning_paths"]:
                     if path["name"] == selected_path:
+                        current_path = path
                         topics = [topic["name"] for topic in path["topics"]]
-                        context = f"Current learning path: {selected_path}. Topics: {', '.join(topics)}"
+                        context = f"Learning path: {selected_path}. Available topics: {', '.join(topics)}"
+                        break
             
-            # Get AI response
+            # Get AI response with chat history
             with st.chat_message("assistant"):
                 with st.spinner("Thinking..."):
-                    response = get_ai_response(prompt, context)
+                    response = get_ai_response(prompt, context, selected_path, "", st.session_state.messages)
                 st.markdown(response)
             
             # Add assistant response to chat history
             st.session_state.messages.append({"role": "assistant", "content": response})
+            
+            # Auto-scroll to bottom after new message
+            st.rerun()
     
     with col2:
         st.header("📖 Learning Content")
@@ -195,25 +170,69 @@ def main():
                 st.markdown("---")
                 st.subheader("🎯 Quick Topic Questions")
                 
+                # Track previous selection to auto-trigger explanation
+                if "previous_topic" not in st.session_state:
+                    st.session_state.previous_topic = "Select a topic..."
+                
                 selected_topic = st.selectbox(
                     "Get explanation for a specific topic:",
                     ["Select a topic..."] + [topic["name"] for topic in current_path["topics"]]
                 )
                 
+                # Auto-explain when topic is selected (different from previous)
+                if selected_topic != "Select a topic..." and selected_topic != st.session_state.previous_topic:
+                    question = f"Please briefly explain {selected_topic} in the context of {selected_path}."
+                    
+                    # Add to chat
+                    st.session_state.messages.append({"role": "user", "content": question})
+                    
+                    # Get AI response with detailed context and chat history
+                    context = f"Learning path: {selected_path}, Specific topic: {selected_topic}"
+                    response = get_ai_response(question, context, selected_path, selected_topic, st.session_state.messages)
+                    st.session_state.messages.append({"role": "assistant", "content": response})
+                    
+                    # Update previous topic
+                    st.session_state.previous_topic = selected_topic
+                    
+                    # Rerun to update chat
+                    st.rerun()
+                
+                # Learning buttons
                 if selected_topic != "Select a topic...":
-                    if st.button(f"Explain: {selected_topic}"):
-                        question = f"Please explain {selected_topic} in the context of {selected_path}. Provide a clear, educational explanation with examples."
-                        
-                        # Add to chat
-                        st.session_state.messages.append({"role": "user", "content": question})
-                        
-                        # Get AI response
-                        context = f"Learning path: {selected_path}, Topic: {selected_topic}"
-                        response = get_ai_response(question, context)
-                        st.session_state.messages.append({"role": "assistant", "content": response})
-                        
-                        # Rerun to update chat
-                        st.rerun()
+                    st.markdown("---")
+                    
+                    # Teach me more button
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        if st.button(f"📚 Teach me more about: {selected_topic}"):
+                            more_question = f"Can you teach me more advanced concepts about {selected_topic}? Give me deeper insights and practical applications."
+                            
+                            # Add to chat
+                            st.session_state.messages.append({"role": "user", "content": more_question})
+                            
+                            # Get AI response
+                            context = f"Learning path: {selected_path}, Advanced topic: {selected_topic}"
+                            response = get_ai_response(more_question, context, selected_path, selected_topic, st.session_state.messages)
+                            st.session_state.messages.append({"role": "assistant", "content": response})
+                            
+                            # Rerun to update chat
+                            st.rerun()
+                    
+                    # Quiz button
+                    with col2:
+                        if st.button(f"📝 Quiz me on: {selected_topic}"):
+                            quiz_question = f"Give me a quick quiz question about {selected_topic} in the context of {selected_path}. Just ask one good question."
+                            
+                            # Add to chat
+                            st.session_state.messages.append({"role": "user", "content": quiz_question})
+                            
+                            # Get AI response
+                            context = f"Learning path: {selected_path}, Quiz topic: {selected_topic}"
+                            response = get_ai_response(quiz_question, context, selected_path, selected_topic, st.session_state.messages)
+                            st.session_state.messages.append({"role": "assistant", "content": response})
+                            
+                            # Rerun to update chat
+                            st.rerun()
         else:
             st.info("👈 Select a learning path from the sidebar to get started!")
             

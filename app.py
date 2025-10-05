@@ -11,7 +11,7 @@ import time
 
 # Configure Streamlit page
 st.set_page_config(
-    page_title="Learn the science behind profitable trading strategies through interactive lessons, real market data, and personalized AI support.",
+    page_title="QuantCoach",
     page_icon="📈",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -163,8 +163,8 @@ Keep responses CONSISTENT and moderately sized - aim for exactly 2-3 complete se
 # Main app
 def main():
     # Header
-    st.title("🎓 QuantCoach - AI Trading Education")
-    st.markdown("*Learn quantitative trading concepts with AI assistance*")
+    st.title("🎓 QuantCoach: Master Algorithmic Trading with AI Guidance")
+    st.markdown("*Learn the science behind profitable trading strategies through interactive lessons, real market data, and personalized AI support.*")
     
     # Sidebar
     st.sidebar.title("📚 Learning Paths")

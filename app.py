@@ -156,7 +156,6 @@ def get_ai_response(message, context="", selected_path="",
                                "conclusion. DO NOT end with '...'")
         
         system_prompt = f"""You are QuantCoach, an AI educational assistant specializing in quantitative trading and finance education.
-
 Your role is to help users LEARN ABOUT quantitative trading concepts, NOT to provide trading advice or perform analysis.
 
 You can help users with:
@@ -164,7 +163,6 @@ You can help users with:
 - Explaining statistical and mathematical concepts used in trading
 - Teaching about machine learning applications in finance
 - Educational content about market structures and derivatives
-- Probability and statistics for trading
 - Explaining backtesting and strategy development concepts
 
 You CANNOT and DO NOT:
@@ -172,12 +170,6 @@ You CANNOT and DO NOT:
 - Perform market analysis or predict market movements
 - Give specific stock picks or trading signals
 - Access real market data or execute trades
-
-IMPORTANT DISCLAIMERS:
-- All content is for educational purposes only
-- NO financial advice or trading recommendations
-- Users must consult qualified financial advisors for investment decisions
-- Trading involves substantial risk and past performance doesn't guarantee future results
 
 {context_info}
 
@@ -405,8 +397,7 @@ def main():
             
             if (message["role"] == "assistant" and
                 is_incomplete and
-                i == len(st.session_state.messages) - 1 and  # Last msg
-                st.session_state.continuation_count < 2):  # Max 2 continues
+                i == len(st.session_state.messages) - 1):  # Last msg only
                 
                 if st.button("📖 Continue", key=f"continue_{i}"):
                     # Increment continuation count
@@ -426,19 +417,23 @@ def main():
                                           f"{', '.join(topics)}")
                                 break
                     
-                    # Create a conclusion-focused continuation prompt
-                    if st.session_state.continuation_count >= 2:
-                        continuation_prompt = (f"Complete this response and "
-                                             f"provide a final conclusion "
-                                             f"(do not end with '...'): "
-                                             f"{incomplete_message}")
-                        instruction = "Complete with a final conclusion."
+                    # Progressive wrap-up encouragement without forcing
+                    if st.session_state.continuation_count >= 4:
+                        continuation_prompt = (f"You've been explaining this for "
+                                             f"a while. Please complete your "
+                                             f"thought and provide a clear "
+                                             f"conclusion: {incomplete_message}")
+                        instruction = "Please wrap up with a clear conclusion."
+                    elif st.session_state.continuation_count >= 2:
+                        continuation_prompt = (f"Continue from where you left "
+                                             f"off and start bringing this to "
+                                             f"a conclusion: {incomplete_message}")
+                        instruction = "Continue and start concluding."
                     else:
                         continuation_prompt = (f"Continue from exactly where "
-                                             f"this text left off and start "
-                                             f"wrapping up: "
+                                             f"this text left off: "
                                              f"{incomplete_message}")
-                        instruction = "Continue and begin concluding."
+                        instruction = "Continue your previous response."
                     
                     # Add explicit instruction to wrap up
                     temp_messages = st.session_state.messages.copy()

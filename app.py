@@ -65,7 +65,7 @@ def load_learning_paths():
     with open('learning_paths.json', 'r') as f:
         return json.load(f)
 
-def get_ai_response(message, context="", selected_path="", selected_topic="", chat_history=[]):
+def get_ai_response(message, context="", selected_path="", selected_topic="", chat_history=[], is_continuation=False):
     """Get response from Grok API"""
     try:
         # Build detailed context for Grok
@@ -103,7 +103,9 @@ IMPORTANT DISCLAIMERS:
 
 {context_info}
 
-Keep responses VERY concise - aim for 2-3 short sentences maximum. Always finish your thoughts completely within the token limit. Stop before you run out of space. Be conversational but brief."""
+{"Continue from where you left off in your previous response." if is_continuation else ""}
+
+Keep responses CONSISTENT and moderately sized - aim for exactly 2-3 complete sentences. If you have more to say, end with "..." to indicate continuation is available. Always finish complete sentences - never cut off mid-sentence. Be conversational and informative."""
 
         # Build message history for context
         messages = [{"role": "system", "content": system_prompt}]
@@ -119,7 +121,7 @@ Keep responses VERY concise - aim for 2-3 short sentences maximum. Always finish
             messages=messages,
             model="llama-3.1-8b-instant",
             temperature=0.3,
-            max_tokens=250,
+            max_tokens=150,
         )
         
         return chat_completion.choices[0].message.content
@@ -174,7 +176,7 @@ def main():
                 
                 # Get AI response with detailed context and chat history
                 context = f"Learning path: {selected_path}, Specific topic: {selected_topic}"
-                response = get_ai_response(question, context, selected_path, selected_topic, st.session_state.messages)
+                response = get_ai_response(question, context, selected_path, selected_topic, st.session_state.messages, False)
                 st.session_state.messages.append({"role": "assistant", "content": response})
                 
                 # Update previous topic
@@ -196,26 +198,49 @@ def main():
                     
                     # Get AI response
                     context = f"Learning path: {selected_path}, Advanced topic: {selected_topic}"
-                    response = get_ai_response(more_question, context, selected_path, selected_topic, st.session_state.messages)
+                    response = get_ai_response(more_question, context, selected_path, selected_topic, st.session_state.messages, False)
                     st.session_state.messages.append({"role": "assistant", "content": response})
                     
                     # Rerun to update chat
                     st.rerun()
                 
-                # Quiz button
-                if st.sidebar.button(f"📝 Quiz Me", key="quiz_me"):
-                    quiz_question = f"Give me a quick quiz question about {selected_topic} in the context of {selected_path}. Just ask one good question."
+                # Quiz section with header
+                st.sidebar.markdown("**Quiz Me:**")
+                
+                # Quiz buttons - separate rows
+                if st.sidebar.button("📝 Multiple Choice", key="quiz_mc"):
+                    quiz_question = f"Give me a multiple choice quiz question about {selected_topic} in the context of {selected_path}. Provide one question with 4 options (A, B, C, D) and indicate the correct answer."
                     
                     # Add to chat
                     st.session_state.messages.append({"role": "user", "content": quiz_question})
                     
                     # Get AI response
                     context = f"Learning path: {selected_path}, Quiz topic: {selected_topic}"
-                    response = get_ai_response(quiz_question, context, selected_path, selected_topic, st.session_state.messages)
+                    response = get_ai_response(quiz_question, context, selected_path, selected_topic, st.session_state.messages, False)
                     st.session_state.messages.append({"role": "assistant", "content": response})
                     
                     # Rerun to update chat
                     st.rerun()
+                
+                if st.sidebar.button("✍️ Short Answer", key="quiz_sa"):
+                    quiz_question = f"Give me a short answer quiz question about {selected_topic} in the context of {selected_path}. Ask one thought-provoking question that requires a brief explanation."
+                    
+                    # Add to chat
+                    st.session_state.messages.append({"role": "user", "content": quiz_question})
+                    
+                    # Get AI response
+                    context = f"Learning path: {selected_path}, Quiz topic: {selected_topic}"
+                    response = get_ai_response(quiz_question, context, selected_path, selected_topic, st.session_state.messages, False)
+                    st.session_state.messages.append({"role": "assistant", "content": response})
+                    
+                    # Rerun to update chat
+                    st.rerun()
+    
+    # Add Clear Chat button at bottom of sidebar
+    st.sidebar.markdown("---")
+    if st.sidebar.button("🗑️ Clear Chat"):
+        st.session_state.messages = []
+        st.rerun()
     
     # Main chat area - full width
     st.header("🤖 AI Assistant")
@@ -229,10 +254,47 @@ def main():
     
     with chat_container:
         # Display chat messages (oldest first, newest last - natural chat flow)
-        for message in st.session_state.messages:
+        for i, message in enumerate(st.session_state.messages):
             with st.chat_message(message["role"]):
                 # Add a unique key to prevent rendering issues
                 st.markdown(message["content"], unsafe_allow_html=False)
+            
+            # Add "Continue" button for assistant messages that end with "..."
+            if (message["role"] == "assistant" and
+                message["content"].endswith("...") and
+                i == len(st.session_state.messages) - 1):  # Only for the last message
+                
+                if st.button("📖 Continue", key=f"continue_{i}"):
+                    # Get continuation
+                    context = ""
+                    if selected_path != "Select a path...":
+                        for path in learning_paths["learning_paths"]:
+                            if path["name"] == selected_path:
+                                topics = [topic["name"] for topic in path["topics"]]
+                                context = f"Learning path: {selected_path}. Available topics: {', '.join(topics)}"
+                                break
+                    
+                    # Get continuation response
+                    with st.spinner("Continuing..."):
+                        continuation = get_ai_response(
+                            "Please continue your explanation",
+                            context,
+                            selected_path,
+                            "",
+                            st.session_state.messages,
+                            is_continuation=True
+                        )
+                    
+                    # Add continuation to chat
+                    st.session_state.messages.append({"role": "assistant", "content": continuation})
+                    st.rerun()
+    
+    # Educational Disclaimer before chat input (will appear above input box)
+    st.markdown("---")
+    st.markdown("""
+    **⚠️ Educational Disclaimer:** This platform is for educational purposes only.
+    No financial advice is provided. Always consult qualified financial advisors for investment decisions.
+    """)
     
     # Chat input at bottom
     if prompt := st.chat_input("Ask me about quantitative trading concepts..."):
@@ -250,24 +312,12 @@ def main():
         
         # Get AI response with chat history
         with st.spinner("Thinking..."):
-            response = get_ai_response(prompt, context, selected_path, "", st.session_state.messages)
+            response = get_ai_response(prompt, context, selected_path, "", st.session_state.messages, False)
         
         # Add assistant response to chat history
         st.session_state.messages.append({"role": "assistant", "content": response})
         
         # Rerun to show new messages
-        st.rerun()
-    
-    # Footer
-    st.markdown("---")
-    st.markdown("""
-    **⚠️ Educational Disclaimer:** This platform is for educational purposes only. 
-    No financial advice is provided. Always consult qualified financial advisors for investment decisions.
-    """)
-    
-    # Clear chat button
-    if st.sidebar.button("🗑️ Clear Chat"):
-        st.session_state.messages = []
         st.rerun()
 
 if __name__ == "__main__":

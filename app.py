@@ -311,8 +311,7 @@ def main():
                     quiz_question = (f"Give me a multiple choice quiz "
                                    f"question about {selected_topic} in the "
                                    f"context of {selected_path}. Provide one "
-                                   f"question with 4 options (A, B, C, D) "
-                                   f"and indicate the correct answer.")
+                                   f"question with 4 options (A, B, C, D).")
                     
                     # Add to chat
                     st.session_state.messages.append({
